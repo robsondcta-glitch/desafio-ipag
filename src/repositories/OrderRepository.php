@@ -22,34 +22,60 @@ class OrderRepository {
     return $order;
   }
 
-  public function findById($id) {
+  public function findByOrderNumber($order_number) {
     $pdo = getPDO();
-    $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = :id");
-    $stmt->execute([':id' => $id]);
+    $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_number = :order_number");
+    $stmt->execute([':order_number' => $order_number]);
     $data = $stmt->fetch();
     $pdo = null;
     return $data ? new Order($data) : null;
   }
 
-  public function updateStatus($id, $status) {
+  public function updateStatusByOrderNumber($order_number, $status) {
     $pdo = getPDO();
-    $stmt = $pdo->prepare("UPDATE orders SET status = :status WHERE id = :id");
+    $stmt = $pdo->prepare("UPDATE orders SET status = :status WHERE order_number = :order_number");
     $stmt->execute([
       ':status' => $status,
-      ':id' => $id
+      ':order_number' => $order_number
     ]);
     $rows = $stmt->rowCount();
     $pdo = null;
     return $rows;
   }
 
-  public function findAll() {
+  public function findAll($status = null, $customer_id = null, $start_date = null, $end_date = null) {
     $pdo = getPDO();
-    $stmt = $pdo->query("SELECT * FROM orders");
+    $query = "SELECT * FROM orders WHERE 1=1";
+    $params = [];
+
+    if ($status) {
+      $query .= " AND status = :status";
+      $params[':status'] = $status;
+    }
+
+    if ($customer_id) {
+      $query .= " AND customer_id = :customer_id";
+      $params[':customer_id'] = $customer_id;
+    }
+
+    if ($start_date) {
+      $query .= " AND created_at >= :start_date";
+      $params[':start_date'] = $start_date . " 00:00:00";
+    }
+
+    if ($end_date) {
+      $query .= " AND created_at <= :end_date";
+      $params[':end_date'] = $end_date . " 23:59:59";
+    }
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+
     $orders = $stmt->fetchAll();
     $pdo = null;
     return array_map(fn($data) => new Order($data), $orders);
   }
+
 
   public function getSummary() {
     $pdo = getPDO();
@@ -61,6 +87,15 @@ class OrderRepository {
     $summary = $stmt->fetch();
     $pdo = null;
     return $summary;
+  }
+
+  public function verifyOrderNumber($order_number) {
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_number = :order_number");
+    $stmt->execute([':order_number' => $order_number]);
+    $order = $stmt->fetch();
+    $pdo = null;
+    return empty($order); // true se não encontrou (número é único)
   }
 
 }

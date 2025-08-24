@@ -19,9 +19,10 @@ class OrderItemService {
   }
 
   public function getByOrderId($order_id) {
-    $order_itens = $this->repo->findByOrderId($order_id);
-    if (!$order_itens || count($order_itens) == 0)
+    $order_items = $this->repo->findByOrderId($order_id);
+    if (!$order_items || count($order_items) == 0) {
       throw new \Exception("Order items not found");
-    return $order_itens;
+    }
+    return $order_items;
   }
 }

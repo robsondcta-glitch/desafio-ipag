@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Repositories\OrderRepository;
+use App\Services\CustomerService;
+use App\Services\OrderItemService;
 use App\Models\Order;
+use App\Models\OrderItem;
 
 class OrderService {
 
@@ -12,84 +15,171 @@ class OrderService {
   public function __construct() {
     $this->repo = new OrderRepository();
   }
+  
+  public function createOrder($data) {
+    $pdo = getPDO();
+    try {
+      // Inicia a transação
+      $pdo->beginTransaction();
 
-  // public function createOrder($customerId, $totalValue) {
-  //   $orderNumber = 'ORD-' . rand(10000, 99999);
-  //   $order = new Order([
-  //     'customer_id' => $customerId,
-  //     'order_number' => $orderNumber,
-  //     'total_value' => $totalValue,
-  //     'status' => 'PENDING'
-  //   ]);
+      $customer_data = $data['customer'];
+      $order_data = $data['order'];
 
-  //   return $this->repo->create($order);
-  // }
+      // criar ou validar cliente
+      $customerService = new CustomerService();
+      if (!isset($customer_data['id'])) { // cliente novo
+        $customer = $customerService->createCustomer($customer_data);
+      } else { // cliente existente
+        // Verifica se o cliente já existe, caso não, cria
+        if (!$customerService->verifyCustomer($customer_data['id'])) {
+          $customer = $customerService->createCustomer($customer_data);
+        } else {
+          $customer = $customerService->getById($customer_data['id']);
+        }
+      }
+      
+      $tries = 0;
+      do {
+        // Gera o order number randomico
+        $order_number = 'ORD-' . rand(10000, 99999);
+        $tries++;
+        // utiliza o verifyOrderNumber para verificar se o número da ordem já existe
+      } while (!$this->repo->verifyOrderNumber($order_number) && $tries < 10);
 
-  public function createOrder($customer_data, $order_data) {
-    // criar ou validar cliente
-    if (!isset($customer_data['id'])) {
-      // cliente novo
-      $customerService = new \App\Services\CustomerService();
-      $customer = $customerService->createCustomer($customer_data);
-    } else {
-      // cliente existente
-      $customerService = new \App\Services\CustomerService();
-      $customer = $customerService->getById($customer_data['id']);
+      if ($tries >= 10) {
+        throw new \Exception("Não foi possível gerar um número de ordem único");
+      }
+
+      // Caso o valor total do pedido não tenha sido informado 
+      $total_value = $order_data['total_value'] ?? 0;
+      if ($total_value == 0) {
+        foreach ($order_data['items'] as $item) {
+          $total_value += $item['quantity'] * $item['unit_value'];
+        }
+      }
+
+      // criar o pedido
+      $order = new Order([
+        'customer_id' => $customer->id,
+        'order_number' => $order_number,
+        'total_value' => $total_value,
+        'status' => 'PENDING'
+      ]);
+
+      $order = $this->repo->create($order);
+
+      $order_item_service = new OrderItemService();
+      $items = [];
+
+      foreach ($order_data['items'] as $item) {
+        $order_item = new OrderItem([
+          'order_id' => $order->id,
+          'product_name' => $item['product_name'],
+          'quantity' => $item['quantity'],
+          'unit_value' => $item['unit_value'],
+        ]);
+
+        $saved_order_item = $order_item_service->createOrderItem($order_item);
+        
+        $items[] = [
+          'product_name' => $saved_order_item->product_name,
+          'quantity' => $saved_order_item->quantity,
+          'unit_value' => $saved_order_item->unit_value,
+          'total_value' => $saved_order_item->quantity * $saved_order_item->unit_value,
+        ];
+      }
+
+      // Confirma a transação
+      $pdo->commit();
+
+      return [
+        'order_id' => $order->order_number,
+        'order_number' => $order->order_number,
+        'status' => $order->status,
+        'total_value' => $order->total_value,
+        'customer' => [
+          'id' => $customer->id,
+          'name' => $customer->name,
+          'document' => $customer->document,
+          'email' => $customer->email,
+          'phone' => $customer->phone,
+        ],
+        'items' => $items,
+        'created_at' => date('c')
+      ];
+    } catch (\Exception $e) {
+      // Se der erro, faz rollback
+      $pdo->rollBack();
+      throw new \Exception("Ocorreu um erro ao salvar os dados do pedido, por favor, tente novamente.");
+    } finally {
+      $pdo = null;
     }
-
-    // criar o pedido
-    $orderNumber = 'ORD-' . rand(10000, 99999);
-    $order = new \App\Models\Order([
-      'customer_id' => $customer->id,
-      'order_number' => $orderNumber,
-      'total_value' => $order_data['total_value'],
-      'status' => 'PENDING'
-    ]);
-
-    $this->repo->create($order);
-
-    return [
-      'order' => $order,
-      'customer' => $customer
-    ];
   }
 
-  public function changeStatus($orderId, $newStatus) {
-    $order = $this->repo->findById($orderId);
+  public function changeStatus($order_number, $new_status) {
+    $order = $this->repo->findByOrderNumber($order_number);
     if (!$order) {
       throw new \Exception("Order not found");
     }
 
     // aqui podemos validar transições de status
-    $validNextStatuses = [
-      'PENDING' => ['WAITING_PAYMENT', 'CANCELED'],
-      'WAITING_PAYMENT' => ['PAID', 'CANCELED'],
-      'PAID' => ['PROCESSING', 'CANCELED'],
-      'PROCESSING' => ['SHIPPED', 'CANCELED'],
-      'SHIPPED' => ['DELIVERED', 'CANCELED'],
-      'DELIVERED' => [],
-      'CANCELED' => []
+    $valid_next_status = [
+      'PENDING' => [
+        'message' => 'Pedido criado, aguardando pagamento',
+        'next'    => ['WAITING_PAYMENT', 'CANCELED']
+      ],
+      'WAITING_PAYMENT' => [
+        'message' => 'Aguardando confirmação de pagamento',
+        'next'    => ['PAID', 'CANCELED']
+      ],
+      'PAID' => [
+        'message' => 'Pagamento confirmado',
+        'next'    => ['PROCESSING', 'CANCELED']
+      ],
+      'PROCESSING' => [
+        'message' => 'Pedido em processamento',
+        'next'    => ['SHIPPED', 'CANCELED']
+      ],
+      'SHIPPED' => [
+        'message' => 'Pedido enviado',
+        'next'    => ['DELIVERED', 'CANCELED']
+      ],
+      'DELIVERED' => [
+        'message' => 'Pedido entregue ao cliente',
+        'next'    => []
+      ],
+      'CANCELED' => [
+        'message' => 'Pedido cancelado',
+        'next'    => []
+      ]
     ];
 
-    if (!in_array($newStatus, $validNextStatuses[$order->status])) {
-      throw new \Exception("Invalid status transition from {$order->status} to $newStatus");
+    if (!in_array($new_status, $valid_next_status[$order->status]['next'])) {
+      throw new \Exception("Inválida mudança de status de {$order->status} para $new_status");
     }
 
-    $this->repo->updateStatus($orderId, $newStatus);
-    return $this->repo->findById($orderId);
+    $this->repo->updateStatusByOrderNumber($order_number, $new_status);
+
+    return [
+      'status' => $new_status,
+      'notes' => $valid_next_status[$new_status]['message'],
+    ];
   }
 
-  public function getById($orderId) {
-    $order = $this->repo->findById($orderId);
-    if (!$order) throw new \Exception("Order not found");
+  public function getByOrderNumber($order_number) {
+    $order = $this->repo->findByOrderNumber($order_number);
+    if (!$order) {
+      throw new \Exception("Order not found");
+    }
     return $order;
   }
 
-  public function listOrders() {
-    return $this->repo->findAll(); // implementar findAll() no OrderRepository
+  public function listOrders($status = null, $customer_id = null, $start_date = null, $end_date = null) {
+    $orders = $this->repo->findAll($status, $customer_id, $start_date, $end_date);
+    return $orders;
   }
 
   public function getSummary() {
-    return $this->repo->getSummary(); // implementar getSummary() no OrderRepository
+    return $this->repo->getSummary();
   }
 }

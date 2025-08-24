@@ -18,10 +18,19 @@ class CustomerService {
     return $this->repo->create($customer);
   }
 
+  public function verifyCustomer($id) {
+    $customer = $this->repo->findById($id);
+    if (!$customer) {
+      return false;
+    }
+    return true;
+  }
+
   public function getById($id) {
     $customer = $this->repo->findById($id);
-    if (!$customer) 
+    if (!$customer) {
       throw new \Exception("Customer not found");
+    }
     return $customer;
   }
 }

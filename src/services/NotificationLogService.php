@@ -19,15 +19,17 @@ class NotificationLogService {
 
   public function getByOrderId($order_id) {
     $notifications_log = $this->repo->findByOrderId($order_id);
-    if (!$notifications_log)
+    if (!$notifications_log) {
       throw new \Exception("Notification Log not found");
+    }
     return $notifications_log;
   }
 
   public function getLastLogByOrderId($order_id) {
     $notifications_log = $this->repo->findLastLogByOrderId($order_id);
-    if (!$notifications_log)
+    if (!$notifications_log) {
       throw new \Exception("Notification Log not found");
+    }
     return $notifications_log;
   }
 }

@@ -10,7 +10,7 @@ class OrderItemRepository {
   public function create($order_item) {
     $pdo = getPDO();
     $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_value) 
-      VALUES (:order_id, :product_name, :quantity, :unit_value");
+      VALUES (:order_id, :product_name, :quantity, :unit_value)");
     $stmt->execute([
       ':order_id' => $order_item->order_id,
       ':product_name' => $order_item->product_name,
