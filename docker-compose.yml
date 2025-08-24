@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  php:
+    build: .
+    container_name: desafio_ipag_php
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - mysql
+      - rabbitmq
+
+  mysql:
+    image: mysql:8.0
+    container_name: desafio_ipag_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: ipag
+      MYSQL_USER: ipaguser
+      MYSQL_PASSWORD: ipagpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: desafio_ipag_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest  
+
+volumes:
+  mysql_data:
+
