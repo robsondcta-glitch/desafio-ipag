@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\OrderRepository;
 use App\Services\CustomerService;
 use App\Services\OrderItemService;
+use App\Services\MessageQueueService;
 use App\Models\Order;
 use App\Models\OrderItem;
 
@@ -158,7 +159,24 @@ class OrderService {
       throw new \Exception("Inválida mudança de status de {$order->status} para $new_status");
     }
 
+
+    // Busca o customer pelo order number
+    $customerService = new CustomerService();
+    $customer = $customerService->getByOrderId($order->id);
+    $old_status_order = $order->status;
+    
     $this->repo->updateStatusByOrderNumber($order_number, $new_status);
+
+    // Publica a mudança de status para o worker através do RabbitMQ
+    $mq = new MessageQueueService();
+    $mq->publish([
+      'email' => $customer->email,
+      'order_id' => $order->id,
+      'order_number' => $order_number,
+      'old_status' => $old_status_order,
+      'new_status' => $new_status,
+      'message' => $valid_next_status[$new_status]['message'],
+    ]);
 
     return [
       'status' => $new_status,

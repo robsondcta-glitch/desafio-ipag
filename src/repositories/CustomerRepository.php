@@ -30,4 +30,15 @@ class CustomerRepository {
     $pdo = null;
     return $data ? new Customer($data) : null;
   }
+
+  public function findByOrderId($order_id) {
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT C.* FROM customers C 
+      INNER JOIN orders O ON O.customer_id = C.id 
+      WHERE O.id = :order_id");
+    $stmt->execute([':order_id' => $order_id]);
+    $data = $stmt->fetch();
+    $pdo = null;
+    return $data ? new Customer($data) : null;
+  }
 }

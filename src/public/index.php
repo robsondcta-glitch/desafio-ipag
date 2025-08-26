@@ -1,5 +1,7 @@
 <?php
 
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 require __DIR__ . '/../../vendor/autoload.php';
 
 use Slim\Factory\AppFactory;
@@ -12,14 +14,7 @@ $app->get('/', function($request, $response) {
   return $response;
 });
 
-$app->get('/ping', function($request, $response) {
-  $payload = json_encode(["message" => "pong"], JSON_UNESCAPED_UNICODE);
-  $response->getBody()->write($payload);
-  return $response->withHeader('Content-Type', 'application/json');
-});
-
 // carregar routes de Orders
 (require __DIR__ . '/../routers/orderRoutes.php')($app);
-(require __DIR__ . '/../routers/notificationLogRoutes.php')($app);
 
 $app->run();

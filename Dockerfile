@@ -10,7 +10,6 @@ RUN a2enmod rewrite
 # permite leitura de .htaccess (substitui AllowOverride None -> All)
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
-
 # Copiar todo o projeto para dentro do container
 COPY . /var/www/html/
 
@@ -22,3 +21,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 
 # Ajustar permissões
 RUN chown -R www-data:www-data /var/www/html
+
+# instala a extensão BCMath do PHP dentro do container
+RUN docker-php-ext-install bcmath
+
