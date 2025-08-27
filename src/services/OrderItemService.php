@@ -20,7 +20,7 @@ class OrderItemService {
 
   public function getByOrderId($order_id) {
     $order_items = $this->repo->findByOrderId($order_id);
-    if (!$order_items || count($order_items) == 0) {
+    if (empty($order_items) || count($order_items) == 0) {
       throw new \Exception("Order items not found");
     }
     return $order_items;

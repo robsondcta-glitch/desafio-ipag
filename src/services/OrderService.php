@@ -119,7 +119,7 @@ class OrderService {
 
   public function changeStatus($order_number, $new_status) {
     $order = $this->repo->findByOrderNumber($order_number);
-    if (!$order) {
+    if (empty($order)) {
       throw new \Exception("Order not found");
     }
 
@@ -186,7 +186,7 @@ class OrderService {
 
   public function getByOrderNumber($order_number) {
     $order = $this->repo->findByOrderNumber($order_number);
-    if (!$order) {
+    if (empty($order)) {
       throw new \Exception("Order not found");
     }
     return $order;

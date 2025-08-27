@@ -9,13 +9,14 @@ require_once __DIR__ . '/../config/database.php';
 class NotificationLogRepository {
   public function create($notification_log) {
     $pdo = getPDO();
-    $stmt = $pdo->prepare("INSERT INTO notification_logs (order_id, old_status, new_status, message) 
-      VALUES (:order_id, :old_status, :new_status, :message)");
+    $stmt = $pdo->prepare("INSERT INTO notification_logs (order_id, old_status, new_status, message, created_at) 
+      VALUES (:order_id, :old_status, :new_status, :message, :created_at)");
     $stmt->execute([
       ':order_id' => $notification_log->order_id,
       ':old_status' => $notification_log->old_status,
       ':new_status' => $notification_log->new_status,
       ':message' => $notification_log->message,
+      ':created_at' => $notification_log->created_at,
     ]);
     $notification_log->id = $pdo->lastInsertId();
     $pdo = null;
@@ -38,8 +39,8 @@ class NotificationLogRepository {
       ORDER BY create_at DESC 
       LIMIT 1");
     $stmt->execute([':order_id' => $order_id]);
-    $notification_log = $stmt->fetch();
+    $data = $stmt->fetch();
     $pdo = null;
-    return new NotificationLog($notification_log);
+    return $data ? new NotificationLog($data) : null;
   }
 }

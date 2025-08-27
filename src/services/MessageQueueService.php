@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 class MessageQueueService {
   private $connection;
   private $channel;
-  private $queue = 'order_status_updates';
+  // private $queue = 'order_status_updates';
 
   public function __construct() {
     // Carregar variáveis do .env
@@ -29,8 +29,8 @@ class MessageQueueService {
 
   public function publish($data) {
     $msg = new AMQPMessage(json_encode($data));
-    $this->channel->queue_declare($this->queue, false, true, false, false);
-    $this->channel->basic_publish($msg, '', $this->queue);
+    $this->channel->queue_declare('order_status_updates', false, true, false, false);
+    $this->channel->basic_publish($msg, '', 'order_status_updates');
   }
 
   public function __destruct() {

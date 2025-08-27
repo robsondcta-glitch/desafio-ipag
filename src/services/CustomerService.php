@@ -20,7 +20,7 @@ class CustomerService {
 
   public function verifyCustomer($id) {
     $customer = $this->repo->findById($id);
-    if (!$customer) {
+    if (empty($customer)) {
       return false;
     }
     return true;
@@ -28,7 +28,7 @@ class CustomerService {
 
   public function getById($id) {
     $customer = $this->repo->findById($id);
-    if (!$customer) {
+    if (empty($customer)) {
       throw new \Exception("Customer not found");
     }
     return $customer;
@@ -36,7 +36,7 @@ class CustomerService {
 
   public function getByOrderId($order_id) {
     $customer = $this->repo->findByOrderId($order_id);
-    if (!$customer) {
+    if (empty($customer)) {
       throw new \Exception("Customer not found");
     }
     return $customer;
