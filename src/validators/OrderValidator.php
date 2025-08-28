@@ -19,10 +19,6 @@ class OrderValidator {
       $errors[] = "O documento do cliente é obrigatório.";
     }
 
-    // if (empty($data['order']['total_value'])) {
-    //   $errors[] = "O valor total do pedido deve ser informado.";
-    // }
-
     $order_items = $data['order']['items'];
     /* Validação dos items do pedido */
     if (!isset($order_items) || !is_array($order_items) || count($order_items) == 0) {

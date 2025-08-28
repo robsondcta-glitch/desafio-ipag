@@ -8,13 +8,16 @@ use App\Services\OrderItemService;
 use App\Services\MessageQueueService;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Factories\LoggerFactory;
 
 class OrderService {
 
   private $repo;
+  private $logger;
 
   public function __construct() {
     $this->repo = new OrderRepository();
+    $this->logger = LoggerFactory::create('api');
   }
   
   public function createOrder($data) {
@@ -27,15 +30,15 @@ class OrderService {
       $order_data = $data['order'];
 
       // criar ou validar cliente
-      $customerService = new CustomerService();
+      $customer_service = new CustomerService();
       if (!isset($customer_data['id'])) { // cliente novo
-        $customer = $customerService->createCustomer($customer_data);
+        $customer = $customer_service->createCustomer($customer_data);
       } else { // cliente existente
         // Verifica se o cliente já existe, caso não, cria
-        if (!$customerService->verifyCustomer($customer_data['id'])) {
-          $customer = $customerService->createCustomer($customer_data);
+        if (!$customer_service->verifyCustomer($customer_data['id'])) {
+          $customer = $customer_service->createCustomer($customer_data);
         } else {
-          $customer = $customerService->getById($customer_data['id']);
+          $customer = $customer_service->getById($customer_data['id']);
         }
       }
       
@@ -90,6 +93,18 @@ class OrderService {
         ];
       }
 
+      // Cria o log do create order
+      $this->logger->info("Pedido criado com sucesso", [
+        'timestamp'   => date(DATE_ATOM),
+        'service'     => 'api',
+        'trace_id'    => $data['request_id'] ?? null,
+        'request_id'  => $data['request_id'] ?? null,
+        'user_id'     => $customer->id ?? null,
+        'order_id'    => $order->order_number,
+        'status_from' => null,
+        'status_to'   => 'PENDING'
+      ]);
+
       // Confirma a transação
       $pdo->commit();
 
@@ -111,6 +126,16 @@ class OrderService {
     } catch (\Exception $e) {
       // Se der erro, faz rollback
       $pdo->rollBack();
+
+       $this->logger->error("Erro ao criar pedido", [
+        'timestamp'   => date(DATE_ATOM),
+        'service'     => 'api',
+        'trace_id'    => $data['request_id'] ?? null,
+        'request_id'  => $data['request_id'] ?? null,
+        'user_id'     => $customer_data['id'] ?? null,
+        'message'     => $e->getMessage(),
+      ]);
+
       throw new \Exception("Ocorreu um erro ao salvar os dados do pedido, por favor, tente novamente.");
     } finally {
       $pdo = null;
@@ -158,24 +183,40 @@ class OrderService {
     if (!in_array($new_status, $valid_next_status[$order->status]['next'])) {
       throw new \Exception("Inválida mudança de status de {$order->status} para $new_status");
     }
-
-
-    // Busca o customer pelo order number
-    $customerService = new CustomerService();
-    $customer = $customerService->getByOrderId($order->id);
+    
     $old_status_order = $order->status;
     
     $this->repo->updateStatusByOrderNumber($order_number, $new_status);
 
+    // Log da mudança de status
+    $this->logger->info("Mudança de status do pedido", [
+      'timestamp'   => date(DATE_ATOM),
+      'service'     => 'api',
+      'trace_id'    => $correlationId ?? null,
+      'request_id'  => $correlationId ?? null,
+      'user_id'     => 'system',
+      'order_id'    => $order_number,
+      'status_from' => $old_status_order,
+      'status_to'   => $new_status,
+    ]);
+
     // Publica a mudança de status para o worker através do RabbitMQ
     $mq = new MessageQueueService();
     $mq->publish([
-      'email' => $customer->email,
-      'order_id' => $order->id,
-      'order_number' => $order_number,
+      'order_id' => $order_number,
       'old_status' => $old_status_order,
       'new_status' => $new_status,
-      'message' => $valid_next_status[$new_status]['message'],
+      'timestamp' => gmdate("Y-m-d\TH:i:s\Z"),
+      'user_id' => 'system',
+    ]);
+
+    $this->logger->info("Mensagem enviada para RabbitMQ", [
+      'timestamp'       => date(DATE_ATOM),
+      'service'         => 'api',
+      'correlation_id'  => $correlationId ?? null,
+      'order_id'        => $order_number,
+      'status_from'     => $old_status_order,
+      'status_to'       => $new_status
     ]);
 
     return [

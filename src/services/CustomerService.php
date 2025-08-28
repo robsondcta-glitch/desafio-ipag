@@ -41,4 +41,12 @@ class CustomerService {
     }
     return $customer;
   }
+
+  public function getByOrderNumber($order_id) {
+    $customer = $this->repo->findByOrderNumber($order_id);
+    if (empty($customer)) {
+      throw new \Exception("Customer not found");
+    }
+    return $customer;
+  }
 }
