@@ -76,13 +76,20 @@ class OrderRepository {
     return array_map(fn($data) => new Order($data), $orders);
   }
 
-
   public function getSummary() {
     $pdo = getPDO();
-    $stmt = $pdo->query("SELECT 
+    $stmt = $pdo->query("SELECT
         COUNT(*) AS total_orders,
-        SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending,
-        SUM(CASE WHEN status = 'PAID' THEN 1 ELSE 0 END) AS paid
+        SUM(total_value) AS total_revenue,
+        ROUND(AVG(total_value), 2) AS avg_ticket,
+        MIN(total_value) AS min_order_value,
+        MAX(total_value) AS max_order_value,
+        COUNT(DISTINCT customer_id) AS total_customers,
+        SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending_orders,
+        SUM(CASE WHEN status = 'PAID' THEN 1 ELSE 0 END) AS paid_orders,
+        SUM(CASE WHEN status = 'SHIPPED' THEN 1 ELSE 0 END) AS shipped_orders,
+        SUM(CASE WHEN status = 'DELIVERED' THEN 1 ELSE 0 END) AS delivered_orders,
+        SUM(CASE WHEN status = 'CANCELED' THEN 1 ELSE 0 END) AS canceled_orders
       FROM orders");
     $summary = $stmt->fetch();
     $pdo = null;
