@@ -54,7 +54,8 @@ volumes:
 ```
 
 **Dockerfile**
-/*
+
+```
 # Dockerfile
 FROM php:8.2-apache
 
@@ -79,27 +80,27 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 # Ajustar permissões
 RUN chown -R www-data:www-data /var/www/html
 
-*/
+```
 
 **Subindo o ambiente**
 
-No terminal, dentro da pasta do projeto:
+No terminal, acesse a pasta do projeto e execute o comando abaixo:
 
-/*
+```
 docker-compose up -d
-*/
+```
 
-Verificando logs:
+Para verificar se tudo funcionou corretamente e os container estão ativos, utilize o comando abaixo:
 
-/*
+```
 docker-compose logs -f
-*/
+```
 
-Parando containers:
+Caso queira em algum momento parar a execuçaõ do container, utilize o comando:
 
-/*
+```
 docker-compose down
-*/
+```
 
 ## 1. Testes Iniciais
 
@@ -109,34 +110,60 @@ MySQL: localhost:3306 (usuário: ipaguser / senha: ipagpass)
 
 RabbitMQ Management UI: http://localhost:15672 (usuário: guest / senha: guest)
 
+Essas informações de acesso estão registradas no arquivo docker-compose.yml, caso você tenha trocado alguma informação de acesso, login, senha ou porta, lembre-se de utilizar as informações que foram escolhidas.
+
 ## 2. Criação das tabelas
 
 Para criar as tabelas que foram definidas nas migrations, utilize o comando abaixo:
 
+```
 docker exec -it desafio_ipag_php php src/database/migrate.php
+```
 
 Atente-se de que: Caso tenha alterado o usuário e senha, os mesmos deverão ser informados no arquivo de configuração da **database**
 
 ## 3. Faça a instalação do Composer
 
-Você pode tanto fazer a instalação na maquina local ou no container. A instalação do Composer é necessária para poder realizar o download das dependências do projeto. Para isso abra o terminal na pasta raiz do projeto e execute o comando abaixo:
+Você pode tanto fazer a instalação na maquina local ou no container. No caso deste projeto, foi realizado as instalações e execuções diretamente do container do php **"desafio_ipag_php"**.
+A instalação do Composer é necessária para poder realizar o download das dependências do projeto. Para isso abra o terminal na pasta raiz do projeto e execute o comando abaixo:
 
-/*
+```
 composer install
-*/
+```
 
+## Utilização do Worker
 
-para executar o worker, precisa acessar o php do docker
+Para executar o worker, precisa acessar o php do docker
 
-'docker exec -it desafio_ipag_php bash'
+```
+docker exec -it desafio_ipag_php bash
+```
 
-depois se dirigir a pasta
+Depois se dirigir a pasta
 
-'cd /var/www/html/src/worker'
+```
+cd /var/www/html/src/worker
+```
 
-para executar o codigo utilize o comando
+Para executar o codigo utilize o comando
 
-'php worker.php "order_number"'
+```
+php worker.php "order_number"
+```
 
+Caso de um problema de execução do worker, informando que as bibliotecas não foram localizadas, siga os passos abaixo:
 
-na pasta raiz do acesso ao docker '/var/www/html' executa o comando 'composer dump-autoload'
+Na pasta raiz do acesso ao docker 
+
+```
+/var/www/html
+```
+
+Executa o comando 
+
+```
+composer dump-autoload
+```
+
+Que irá fazer o vinculo das dependencias instaladas.
+
